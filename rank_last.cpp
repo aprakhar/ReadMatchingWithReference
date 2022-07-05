@@ -7,12 +7,8 @@ using std::string;using std::vector;using std::ios;using std::cout;using std::fs
 #define ull unsigned long long
 #define DELTA 3
 
-<<<<<<< HEAD
 string lastColfilename = "chrX_last_col.txt"; 
 // string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
-=======
-string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 void printVector(char, vector<int>);
 void printVectors(vector<int>,vector<int>,vector<int>,vector<int>);

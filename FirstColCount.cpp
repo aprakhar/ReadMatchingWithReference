@@ -6,12 +6,8 @@ using std::cout;using std::fstream;using std::streamoff;using std::streampos;usi
 
 #define ull unsigned long long
 
-<<<<<<< HEAD
 // string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
 string lastColfilename = "chrX_last_col.txt"; 
-=======
-string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 void printAndSave(ull, ull, ull, ull);
 

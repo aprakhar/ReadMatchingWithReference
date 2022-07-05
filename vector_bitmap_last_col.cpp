@@ -7,12 +7,8 @@ using std::cout;using std::fstream;using std::vector;using std::ios;using std::s
 
 #define ull unsigned long long
 
-<<<<<<< HEAD
 string lastColfilename = "chrX_last_col.txt"; 
 // string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
-=======
-string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 void addCharToBitmap(vector<int>&, char);
 void printVector(const vector<int>);

@@ -3,59 +3,39 @@
 #include<fstream>
 #include<vector>
 #include<sstream>
-<<<<<<< HEAD
 #include<algorithm>
 #include<stdexcept>
 
 using std::string; using std::cout; using std::fstream; using std::ios; using std::vector; using std::flush; using std::endl; using std::stringstream;
 using std::transform; using std::reverse; using std::invalid_argument;
-=======
-
-using std::string; using std::cout; using std::fstream; using std::ios; using std::vector; using std::flush; using std::endl; using std::stringstream;
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 #define DELTA 3
 #define ull unsigned long long
 #define ll long long
 
-<<<<<<< HEAD
 string readsFilename = "reads";
 // string readsFilename = "test/testCase1/reads_test";  
 string milestoneMapFilename = "chrX_map_milestone.txt";
-=======
-string readsFilename = "test/testCase1/reads_test";
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 vector<ull> getFirstCol();
 vector<vector<ull>> getACGTLastRank();
 vector<int> getLastColBitMap();
-<<<<<<< HEAD
 string cleanupReadString(string);
 string makeReversedComplement(string);
 char replaceNWithA(char);
 char dnaComplement(char);
 void rankSelectInit(string, vector<vector<ull>>&, vector<int>&, vector<ull>&);
 bool rankSelect(string&, ll&, ll&, vector<vector<ull>>&, vector<int>&, vector<ull>&);
-=======
-bool rankSelect(string&, ll, ll, vector<vector<ull>>&, vector<int>&, vector<ull>&);
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 bool noChInBand(char, ll, ll, vector<int>&);
 ll charToBitStr(char);
 ll getMileStoneRankFromRankDS(char, ll, vector<vector<ull>>&);
 ll getBandInFirstColFromRank(char, ll, vector<ull>&);
-<<<<<<< HEAD
 void getPosInRef(ll, ll, vector<vector<ull>>&, vector<ull>&, vector<int>& );
 char getLastCharAtRow(ll,  vector<int>&);
 
 int main(int argc, char const *argv[]){
     fstream readsFile(readsFilename, ios::in);
     string read, complementReversed;
-=======
-
-int main(int argc, char const *argv[]){
-    fstream readsFile(readsFilename, ios::in);
-    string read;
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
     if(!readsFile.is_open()){
         cout<<"| Unable to open "<<readsFilename<<".\n";
@@ -70,7 +50,6 @@ int main(int argc, char const *argv[]){
 
     cout<<"Reading read strings.\n";
     while(getline(readsFile, read)){
-<<<<<<< HEAD
         // cout<<"Found "<<read<<"? ";
 
         
@@ -112,35 +91,6 @@ int main(int argc, char const *argv[]){
         //     getPosInRef(band_start, band_end,ACGT_last_rank, firstCol, lastColBitMap);
         // } else cout<<"Cannot find this read string.\n";
         // cout<<endl;
-=======
-        ll band_start, band_end;
-        // cout<<"Found "<<read<<"? ";
-        char lastChar = read.back();
-        read.pop_back();
-        bool found = false;
-
-        /*
-            A   A   C   C   G   G   T
-            0   1   2   3   4   5   6
-            firstCol[A] = 2
-            firstCol[C] = 2
-            firstCol[G] = 2
-            firstCol[T] = 1
-        */
-       ll A_start, C_start, G_start, T_start, A_end, C_end, G_end, T_end;
-       A_start = 0; C_start = A_start + firstCol[0]; G_start = C_start + firstCol[1]; T_start = G_start + firstCol[2];
-       A_end = firstCol[0] -1; C_end = A_end + firstCol[1]; G_end = C_end + firstCol[2]; T_end = G_end + firstCol[3];
-
-        switch(lastChar) {
-            case 'A': band_start = A_start; band_end = A_end; break;
-            case 'C': band_start = C_start; band_end = C_end; break;
-            case 'G': band_start = G_start; band_end = G_end; break;
-            case 'T': band_start = T_start; band_end = T_end; break;
-            default: cout<<"Invalid string. Found unknown character: "<<lastChar<<".\n"; exit(EXIT_FAILURE);
-        }
-        found = rankSelect(read, band_start, band_end, ACGT_last_rank, lastColBitMap, firstCol);
-        cout<<"found:"<<found<<".\n";
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
     }
 
     cout<<endl;   
@@ -192,7 +142,6 @@ vector<int> getLastColBitMap() {
     return lastColBitMap;
 }
 
-<<<<<<< HEAD
 char replaceNWithA(char ch) { return ch == 'N' ? 'A' : ch; } 
 
 string cleanupReadString(string str){
@@ -263,9 +212,6 @@ void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int
 }
 
 bool rankSelect(string& read, ll& band_start, ll& band_end, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol){
-=======
-bool rankSelect(string& read, ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol){
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
     // cout<<"bs:"<<band_start<<", be:"<<band_end<<", remaining read:"<<read<<".\n";
     if (read.size() == 0) return true; // recheck this condition
     if (band_end < band_start) return false; // recheck this condition
@@ -349,17 +295,10 @@ ll charToBitStr(char ch) {
 
 ll getMileStoneRankFromRankDS(char ch, ll index, vector<vector<ull>>& ACGT_last_rank) {
     switch (ch){
-<<<<<<< HEAD
         case 'A': return ACGT_last_rank[index][0];
         case 'C': return ACGT_last_rank[index][1];
         case 'G': return ACGT_last_rank[index][2];
         case 'T': return ACGT_last_rank[index][3];
-=======
-        case 'A': return ACGT_last_rank[0][index];
-        case 'C': return ACGT_last_rank[1][index];
-        case 'G': return ACGT_last_rank[2][index];
-        case 'T': return ACGT_last_rank[3][index];
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
         
         default: cout<<"Unknown char found. (ch="<<ch<<").\nProgram terminated\n"; exit(EXIT_FAILURE);
     }
@@ -383,7 +322,6 @@ ll getBandInFirstColFromRank(char ch, ll rank, vector<ull>& firstCol) {
     }
     return -1;
 }
-<<<<<<< HEAD
 
 void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap) {
     fstream readsFile(milestoneMapFilename, ios::in);
@@ -437,5 +375,3 @@ char getLastCharAtRow(ll index, vector<int>& lastColBitMap) {
     };
     return 'X';
 }
-=======
->>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
