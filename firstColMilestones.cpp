@@ -9,7 +9,8 @@ using std::cout; using std::string; using std::vector; using std::stringstream; 
 #define DELTA 3
 #define ull unsigned long long
 
-string firstColFilename = "test/testCase1/chrX_map_test.txt";
+string firstColFilename = "chrX_map.txt";
+// string firstColFilename = "test/testCase1/chrX_map_test.txt";
 string mapMilestoneFilename = "chrX_map_milestone.txt";
 
 int main(int argc, char const *argv[]){

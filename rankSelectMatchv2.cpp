@@ -16,6 +16,7 @@ using std::transform; using std::reverse; using std::invalid_argument;
 string readsFilename = "reads";
 // string readsFilename = "test/testCase1/reads_test";  
 string milestoneMapFilename = "chrX_map_milestone.txt";
+string readsMatchIndexFilename = "readsMatchPosition.txt";
 
 vector<ull> getFirstCol();
 vector<vector<ull>> getACGTLastRank();
@@ -24,21 +25,40 @@ string cleanupReadString(string);
 string makeReversedComplement(string);
 char replaceNWithA(char);
 char dnaComplement(char);
-void rankSelectInit(string, vector<vector<ull>>&, vector<int>&, vector<ull>&);
+void rankSelectInit(string, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&);
 bool rankSelect(string&, ll&, ll&, vector<vector<ull>>&, vector<int>&, vector<ull>&);
 bool noChInBand(char, ll, ll, vector<int>&);
 ll charToBitStr(char);
 ll getMileStoneRankFromRankDS(char, ll, vector<vector<ull>>&);
 ll getBandInFirstColFromRank(char, ll, vector<ull>&);
-void getPosInRef(ll, ll, vector<vector<ull>>&, vector<ull>&, vector<int>& );
+void getPosInRef(ll, ll, vector<vector<ull>>&, vector<ull>&, vector<int>&, string, fstream&, vector<ll>&);
 char getLastCharAtRow(ll,  vector<int>&);
 
 int main(int argc, char const *argv[]){
     fstream readsFile(readsFilename, ios::in);
+    fstream readsMatchIndexFile(readsMatchIndexFilename, ios::out | ios::trunc);
     string read, complementReversed;
+    ////////////
+    fstream milestoneMapFile(milestoneMapFilename, ios::in);
+
+    if(!milestoneMapFile.is_open()){
+        cout<<"| Unable to open "<<milestoneMapFilename<<".\n";
+        exit(EXIT_FAILURE);
+    }
+
+    vector<ll> milestoneMap;
+
+    while(getline(milestoneMapFile, read)){
+        milestoneMap.push_back(stoll(read));
+    }
+    //////////
 
     if(!readsFile.is_open()){
         cout<<"| Unable to open "<<readsFilename<<".\n";
+        return EXIT_FAILURE;
+    }
+    if(!readsMatchIndexFile.is_open()){
+        cout<<"| Unable to open "<<readsMatchIndexFilename<<". Cannot save output. Exiting program.\n";
         return EXIT_FAILURE;
     }
     
@@ -55,8 +75,8 @@ int main(int argc, char const *argv[]){
         
         read = cleanupReadString(read);
         complementReversed = makeReversedComplement(read); 
-        rankSelectInit(read, ACGT_last_rank, lastColBitMap, firstCol);  
-        rankSelectInit(complementReversed, ACGT_last_rank, lastColBitMap, firstCol);  
+        rankSelectInit(read, ACGT_last_rank, lastColBitMap, firstCol,readsMatchIndexFile, milestoneMap);  
+        rankSelectInit(complementReversed, ACGT_last_rank, lastColBitMap, firstCol, readsMatchIndexFile, milestoneMap);  
         // ll band_start, band_end;
         // char lastChar = read.back();
         // bool found = false;
@@ -176,7 +196,8 @@ string makeReversedComplement(string str) {
     return reversedComplement;
 }
 
-void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol) {
+void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchIndexFile, vector<ll>& milestoneMap) {
+    string readCopy = read;
     ll band_start, band_end;
     char lastChar = read.back();
     bool found = false;
@@ -204,11 +225,17 @@ void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int
         default: cout<<"Invalid string. Found unknown character: "<<lastChar<<".\n"; exit(EXIT_FAILURE);
     }
     found = rankSelect(read, band_start, band_end, ACGT_last_rank, lastColBitMap, firstCol);
+    
+    // if (found) {
+    //     // cout<<"BS:"<<band_start<<", BE:"<<band_end<<".\n";
+    //     getPosInRef(band_start, band_end,ACGT_last_rank, firstCol, lastColBitMap, readCopy, readsMatchIndexFile, milestoneMap);
+    // } else cout<<"Cannot find this read string.\n";
+    // cout<<endl;
+
     if (found) {
         // cout<<"BS:"<<band_start<<", BE:"<<band_end<<".\n";
-        getPosInRef(band_start, band_end,ACGT_last_rank, firstCol, lastColBitMap);
-    } else cout<<"Cannot find this read string.\n";
-    cout<<endl;
+        getPosInRef(band_start, band_end,ACGT_last_rank, firstCol, lastColBitMap, readCopy, readsMatchIndexFile, milestoneMap);
+    } else readsMatchIndexFile<<"Not found. ["<<readCopy<<"]\n";
 }
 
 bool rankSelect(string& read, ll& band_start, ll& band_end, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol){
@@ -323,21 +350,22 @@ ll getBandInFirstColFromRank(char ch, ll rank, vector<ull>& firstCol) {
     return -1;
 }
 
-void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap) {
-    fstream readsFile(milestoneMapFilename, ios::in);
-    string read;
+void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap, string read, fstream& readsMatchIndexFile, vector<ll>& milestoneMap) {
+    // fstream readsFile(milestoneMapFilename, ios::in);
+    // string read;
+    ll startIndexInRef;
     ull count_jumps = 0;
 
-    if(!readsFile.is_open()){
-        cout<<"| Unable to open "<<milestoneMapFilename<<".\n";
-        exit(EXIT_FAILURE);
-    }
+    // if(!readsFile.is_open()){
+    //     cout<<"| Unable to open "<<milestoneMapFilename<<".\n";
+    //     exit(EXIT_FAILURE);
+    // }
 
-    vector<ll> milestoneMap;
+    // vector<ll> milestoneMap;
 
-    while(getline(readsFile, read)){
-        milestoneMap.push_back(stoll(read));
-    }
+    // while(getline(readsFile, read)){
+    //     milestoneMap.push_back(stoll(read));
+    // }
 
     for (ll band_iter = band_start; band_iter <= band_end; band_iter++){
         ll band = band_iter;
@@ -355,13 +383,17 @@ void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank
             }
             rank_first_ch = getMileStoneRankFromRankDS(last_ch_band_start, index_nearestMilestone_rankDS, ACGT_last_rank) + count_ch_fromMilestone_toBandStart;
             band = getBandInFirstColFromRank(last_ch_band_start, rank_first_ch, firstCol);
+
             // cout<<"\t\t(Band:"<<band<<")";
         }
         // cout<<"\tStart position in ref string is at: "<<((milestoneMap[band]+count_jumps >= DELTA) ? (milestoneMap[band]+count_jumps)%DELTA : milestoneMap[band]+count_jumps)<<".\n";
         // cout<<"\tStart position in ref string is at: "<<milestoneMap[band]+count_jumps<<". (count_jumps="<<count_jumps<<", milestoneMap[band]"<<milestoneMap[band]<<", band:"<<band<<")\n";
-        cout<<"Start position in ref string is at: "<<milestoneMap[band]+count_jumps<<"\n";
+        startIndexInRef = milestoneMap[(ll)(band/DELTA)]+count_jumps;
+        // cout<<"Start position in ref string is at: "<<startIndexInRef<<"\n";
         count_jumps = 0;
     }
+
+    readsMatchIndexFile<<startIndexInRef<<" ["<<read<<"]\n";
 }
 
 char getLastCharAtRow(ll index, vector<int>& lastColBitMap) {
