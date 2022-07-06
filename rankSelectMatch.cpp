@@ -9,7 +9,7 @@ using std::cout;using std::fstream;using std::ios;using std::string;using std::v
 
 #define ull unsigned long long
 #define ll long long
-#define DELTA 4
+#define DELTA 3
 
 
 void getFirstCol(vector<ull> &);
@@ -23,8 +23,6 @@ ll getRankFromACGT(ll , char , const vector<vector<ull>>& );
 ll findFirstOccurenceInLastCol(const char , const vector<int>& , ll , ll );
 ll findLastOccurenceInLastCol(const char, const vector<int>& , ll , ll);
 int getNumericFormat(char );
-
-// ull matchCount = 0;
 
 vector<pair<ull, ull>> range;
 
@@ -65,19 +63,17 @@ void rankSelect(string read, const vector<ull>& firstCol, const vector<vector<ul
 
     switch(ch) {
         // this will store select for first column, easier coz 1st col is lexicographically sorted
-        case 'A': start = 1; end = firstCol[0]; break;
-        case 'C': start = firstCol[0] +1; end = start + firstCol[1] -1; break;
-        case 'G': start = firstCol[0]+firstCol[1] +1; end = start + firstCol[2] -1; break;
-        case 'T': start = firstCol[0]+firstCol[1]+firstCol[2] +1; end = start + firstCol[3] -1; break;
-        // default: cout<<"Panda";
+        case 'A': start = 0; end = firstCol[0] -1; break;
+        case 'C': start = firstCol[0]; end = start + firstCol[1] -1; break;
+        case 'G': start = firstCol[0]+firstCol[1]; end = start + firstCol[2] -1; break;
+        case 'T': start = firstCol[0]+firstCol[1]+firstCol[2]; end = start + firstCol[3] -1; break;
+        default: cout<<"Invalid read string (read character: "<<ch<<")\n"; return;
     }
-
-    // check for existence TODO;
-    if(start == -1 || end == -1) return;
 
     read.pop_back();
 
-    bool found = true;
+    bool found = false;
+
     cout<<endl;
     
     if(read.length()) found = rankSelectRecursion(read, start, end, firstCol, ACGT_last_rank, lastColBitMap);
@@ -89,7 +85,10 @@ bool rankSelectRecursion(string read,ll start_band, ll end_band, const vector<ul
     char ch = read.back();
     // cout<<"str_read:"<<read<<". Band start:"<<start_band<<","<<", end:"<<end_band<<".\n"<<flush;
 
-    ll start_milestone = start_band - start_band%DELTA, start_rank_of_ch, end_rank_of_ch;
+    ll start_milestone = start_band - start_band%DELTA < 0, 
+        start_rank_of_ch, 
+        end_rank_of_ch
+    ;
     ll nearest_rank_milestone = (ll)start_band/DELTA;
 
     ll counter = 0;
@@ -142,20 +141,20 @@ bool rankSelectRecursion(string read,ll start_band, ll end_band, const vector<ul
 
 ll findNewBandStart(const char ch, const ll start_rank, const vector<ull>& firstCol) {
     switch (ch){
-        case 'A': return start_rank +1;
-        case 'C': return start_rank +  firstCol[0] +1;
-        case 'G': return start_rank + firstCol[0] + firstCol[1] +1;
-        case 'T': return start_rank+ firstCol[0] + firstCol[1] + firstCol[2] +1;
+        case 'A': return start_rank;
+        case 'C': return start_rank +  firstCol[0];
+        case 'G': return start_rank + firstCol[0] + firstCol[1];
+        case 'T': return start_rank+ firstCol[0] + firstCol[1] + firstCol[2];
     }
     return -1;
 }
 
 ll findNewBandEnd(const char ch, ll end_rank, const vector<ull>& firstCol) {
     switch (ch){
-        case 'A': return end_rank +1;
-        case 'C': return end_rank +  firstCol[0] +1;
-        case 'G': return end_rank + firstCol[0] + firstCol[1] +1;
-        case 'T': return end_rank+ firstCol[0] + firstCol[1] + firstCol[2] +1;
+        case 'A': return end_rank;
+        case 'C': return end_rank +  firstCol[0];
+        case 'G': return end_rank + firstCol[0] + firstCol[1];
+        case 'T': return end_rank+ firstCol[0] + firstCol[1] + firstCol[2];
     }
     return -1;
 }

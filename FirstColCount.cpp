@@ -6,15 +6,22 @@ using std::cout;using std::fstream;using std::streamoff;using std::streampos;usi
 
 #define ull unsigned long long
 
+<<<<<<< HEAD
+// string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+string lastColfilename = "chrX_last_col.txt"; 
+=======
+string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+>>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
+
 void printAndSave(ull, ull, ull, ull);
 
 int main(int argc, char const *argv[]){
-    fstream LastCol("chrX_last_col_test.txt", ios::in | ios::app);
+    fstream LastCol(lastColfilename, ios::in | ios::app);
     char ch;
     ull A_count = 0 ,C_count = 0 ,G_count = 0 ,T_count = 0;
 
     if(!LastCol.is_open()){
-        cout<<"| Unable to open "<<"chrX_last_col.txt"<<".\n";
+        cout<<"| Unable to open "<<lastColfilename<<".\n";
         return EXIT_FAILURE;
     }
 
@@ -38,6 +45,11 @@ int main(int argc, char const *argv[]){
 
 void printAndSave(ull A_count, ull C_count, ull G_count, ull T_count){
     fstream RankFirstCol("FirstCol.txt", ios::out | ios::trunc);
+
+    if(!RankFirstCol.is_open()){
+        cout<<"| Unable to open "<<"FirstCol.txt"<<" to write into it. Output binned.\n";
+        return;
+    }
 
     cout<<"A="<<A_count<<"\n";
     cout<<"C="<<C_count<<"\n";

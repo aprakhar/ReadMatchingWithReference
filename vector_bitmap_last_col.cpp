@@ -3,14 +3,16 @@
 #include<vector>
 #include<string>
 
-using std::cout;
-using std::fstream;
-using std::vector;
-using std::ios;
-using std::string;
-using std::flush;
+using std::cout;using std::fstream;using std::vector;using std::ios;using std::string;using std::flush;
 
 #define ull unsigned long long
+
+<<<<<<< HEAD
+string lastColfilename = "chrX_last_col.txt"; 
+// string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+=======
+string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+>>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 void addCharToBitmap(vector<int>&, char);
 void printVector(const vector<int>);
@@ -18,12 +20,12 @@ void printVector(const vector<int>);
 int main(int argc, char** argv){
     vector<int> ACGTBitmap; 
     const int A_mask = 1000, C_mask = 0100, G_mask = 0010, T_mask = 0001;
-    fstream chrXLastColFile("chrX_last_col_test.txt", ios::in | ios::app);
+    fstream chrXLastColFile(lastColfilename, ios::in | ios::app);
     ull A_count = 0 ,C_count = 0 ,G_count = 0 ,T_count = 0;
     char bwtLastColChar;
 
     if(!chrXLastColFile.is_open()){
-        cout<<"| Unable to open "<<"chrX_last_col.txt"<<".\n";
+        cout<<"| Unable to open "<<lastColfilename<<".\n";
         return EXIT_FAILURE;
     }
 

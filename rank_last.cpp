@@ -2,22 +2,34 @@
 #include<fstream>
 #include<vector>
 
-using std::string;
-using std::vector;
-using std::ios;
-using std::cout;
-using std::fstream;
+using std::string;using std::vector;using std::ios;using std::cout;using std::fstream;
 
 #define ull unsigned long long
-#define DELTA 4
+#define DELTA 3
+
+<<<<<<< HEAD
+string lastColfilename = "chrX_last_col.txt"; 
+// string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+=======
+string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+>>>>>>> 4aa3d04 (Refactored logic to be such that $ has lowest priority)
 
 void printVector(char, vector<int>);
 void printVectors(vector<int>,vector<int>,vector<int>,vector<int>);
 
 
-int main() {
-    fstream lastCol("chrX_last_col_test.txt", ios::in | ios::app);
+int main(int argc, char const *argv[]){
+    fstream lastCol(lastColfilename, ios::in | ios::app);
     fstream lastColRank("last_col_rank.txt", ios::out | ios::trunc);
+
+    if(!lastCol.is_open()){
+        cout<<"| Unable to open "<<lastColfilename<<".\n";
+        return EXIT_FAILURE;
+    }
+    if(!lastColRank.is_open()){
+        cout<<"| Unable to open "<<"last_col_rank..txt"<<".\n";
+        return EXIT_FAILURE;
+    }
 
     // 4 ACGT char arrays
     vector<int> A; 
@@ -46,7 +58,7 @@ int main() {
             case 'G': G_count++;break;
             case 'T': T_count++;break;
             case '$': break;
-            default: exit(EXIT_FAILURE);
+            default: cout<<"Unknown character ("<<chrLastCol<<") read in "<<lastColfilename<<"\n"; exit(EXIT_FAILURE);
         }
 
         // no need to push_back again coz the remaining chars are already counted from milestone prev to it.
@@ -57,14 +69,14 @@ int main() {
     // printVectors(A, C, G, T);
 
     lastCol.close();
-    if(lastCol.fail()){
-        cout<<"| Failed to close "<<"chrX_last_col.txt"<<" file.\n";
-    }
+    // if(lastCol.fail()){
+    //     cout<<"| Failed to close "<<"chrX_last_col.txt"<<" file.\n";
+    // }
+
     lastColRank.close();
-    if(lastColRank.fail()){
-        cout<<"| Failed to close "<<"last_col_rank.txt"<<" file.\n";
-    }
-    return EXIT_SUCCESS;
+    // if(lastColRank.fail()){
+    //     cout<<"| Failed to close "<<"last_col_rank.txt"<<" file.\n";
+    // }
 }
 
 void printVectors(vector<int> A,vector<int> C,vector<int> G,vector<int> T){
