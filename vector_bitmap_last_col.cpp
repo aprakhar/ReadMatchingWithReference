@@ -3,12 +3,7 @@
 #include<vector>
 #include<string>
 
-using std::cout;
-using std::fstream;
-using std::vector;
-using std::ios;
-using std::string;
-using std::flush;
+using std::cout; using std::fstream; using std::vector; using std::ios; using std::string; using std::flush;
 
 #define ull unsigned long long
 
@@ -35,7 +30,6 @@ int main(int argc, char** argv){
     cout<<"\rParsing finished.\n";
 
     printVector(ACGTBitmap);
-    return EXIT_SUCCESS;
 }
 
 void addCharToBitmap(vector<int>& bitMap, char ch) {
