@@ -3,37 +3,38 @@
 #include<vector>
 #include<string>
 
-using std::cout;using std::fstream;using std::vector;using std::ios;using std::string;using std::flush;
+using std::cout; using std::fstream; using std::vector; using std::ios; using std::string; using std::flush;
 
 #define ull unsigned long long
+#define ll long long
 
-string lastColfilename = "chrX_last_col.txt"; 
-// string lastColfilename = "test/testCase1/chrX_last_col_test.txt"; 
+string lastColFilename = "chrX_last_col.txt"; 
+// string lastColFilename = "test/testCase1/chrX_last_col_test.txt"; 
 
 void addCharToBitmap(vector<int>&, char);
-void printVector(const vector<int>);
+void printVector(vector<int>&);
 
 int main(int argc, char** argv){
+    fstream lastColFile(lastColFilename, ios::in|ios::app);
+
+    if(!lastColFile.is_open()){
+        cout<<"| Unable to open "<<lastColFilename<<".\n";
+        return EXIT_FAILURE;
+    }
+    
     vector<int> ACGTBitmap; 
     const int A_mask = 1000, C_mask = 0100, G_mask = 0010, T_mask = 0001;
-    fstream chrXLastColFile(lastColfilename, ios::in | ios::app);
     ull A_count = 0 ,C_count = 0 ,G_count = 0 ,T_count = 0;
     char bwtLastColChar;
 
-    if(!chrXLastColFile.is_open()){
-        cout<<"| Unable to open "<<lastColfilename<<".\n";
-        return EXIT_FAILURE;
-    }
-
     cout<<"Parsing..."<<flush;
-    while (chrXLastColFile.get(bwtLastColChar)) {
+    while (lastColFile.get(bwtLastColChar)) {
         if (bwtLastColChar == '\n') continue;
         addCharToBitmap(ACGTBitmap, bwtLastColChar);
     }
-    cout<<"\rParsing finished.\n";
-
+    cout<<"\rParsed.\n";
+    
     printVector(ACGTBitmap);
-    return EXIT_SUCCESS;
 }
 
 void addCharToBitmap(vector<int>& bitMap, char ch) {
@@ -46,17 +47,14 @@ void addCharToBitmap(vector<int>& bitMap, char ch) {
     }
 }
 
-void printVector(const vector<int> R){
-    fstream lastColBitmap("chrX_last_col_bitmap.txt", ios::out | ios::trunc);
+void printVector(vector<int>& R){
+    fstream lastColBitmap("chrX_last_col_bitmap.txt", ios::out|ios::trunc);
 
     cout<<"Writing to file..."<<flush;
-    for (long long i = 0; i < R.size(); i++){
+    for (ll i = 0; i < R.size(); i++){
         lastColBitmap<<R[i]<<'\n';
     }
-    cout<<"\rWriting finished.\n";
+    cout<<"\rWritten to file.\n";
 
     lastColBitmap.close();
-    if(lastColBitmap.fail()){
-        cout<<"| Failed to close "<<"last_col_rank_bitmap.txt"<<" file.\n";
-    }
 }
