@@ -26,24 +26,25 @@ string lastColBitmapFilename = "chrX_last_col_bitmap.txt";      //529MB
 string lastColRankFilename = "last_col_rank.txt";               //1.8GB
 string readsMatchPositionFilename = "readsMatchPosition.txt";   // (op file) 722MB
 
-void multiThreadRankSelect(vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&);
-void rankSelectThread(ull, ull, vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, mutex&);
+void multiThreadRankSelect(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&);
+void rankSelectThread(ull, ull, vector<string>&, vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, mutex&);
 void getFirstCol(vector<ull>&);
 void getACGTLastRank(vector<vector<ull>>&);
 void getLastColBitMap(vector<int>&);
-void getReadsFile(vector<string>&);
+void getReadsFile(vector<string>&, vector<string>&);
 void getMilestoneMapFile(vector<ll>&);
 string cleanupReadString(string);
 string makeReversedComplement(string);
 char replaceNWithA(char);
 char dnaComplement(char);
-void rankSelectInit(string, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, mutex&);
+bool rankSelectInit(string, vector<ull> &, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, mutex&);
 bool rankSelect(string&, ll&, ll&, vector<vector<ull>>&, vector<int>&, vector<ull>&);
 ll charToBitStr(char);
 ll getMileStoneRankFromRankDS(char, ll, vector<vector<ull>>&);
 ll getBandInFirstColFromRank(char, ll, vector<ull>&);
-void getPosInRef(ll, ll, vector<vector<ull>>&, vector<ull>&, vector<int>&, string, fstream&, vector<ll>&, mutex&);
+void getPosInRef(ll, ll, vector<ull>&, vector<vector<ull>>&, vector<ull>&, vector<int>&, string, fstream&, vector<ll>&, mutex&);
 char getLastCharAtRow(int);
+void outputToFile(bool, bool, vector<ull>&, string&, fstream&, mutex&);
 
 int main(int argc, char const *argv[]){
     fstream readsMatchPositionFile(readsMatchPositionFilename, ios::out|ios::trunc);
@@ -53,9 +54,8 @@ int main(int argc, char const *argv[]){
     }
 
     ll readsArraySize;
-    time_point<system_clock> start, end;
     vector<thread> memInitThreads;
-    vector<string> readsAndRevComplReads; vector<ll> milestoneMap; vector<ull> firstCol; vector<vector<ull>> ACGT_last_rank; vector<int> lastColBitMap;
+    vector<string> reads, revComplReads; vector<ll> milestoneMap; vector<ull> firstCol; vector<vector<ull>> ACGT_last_rank; vector<int> lastColBitMap;
 
     cout<<"Reading files & storing in memory...\n"<<flush;
 
@@ -64,7 +64,7 @@ int main(int argc, char const *argv[]){
         Sequential read big files  
     */
     memInitThreads.push_back(thread(getFirstCol, ref(firstCol)));
-    memInitThreads.push_back(thread(getReadsFile, ref(readsAndRevComplReads)));
+    memInitThreads.push_back(thread(getReadsFile, ref(reads), ref(revComplReads)));
     memInitThreads.push_back(thread(getMilestoneMapFile, ref(milestoneMap)));
     getACGTLastRank(ACGT_last_rank);
     getLastColBitMap(lastColBitMap);
@@ -72,34 +72,37 @@ int main(int argc, char const *argv[]){
     cout<<"Read into memory completed.\n"<<flush;
 
     cout<<"Processing read strings.\n";
-    start = system_clock::now();
-    multiThreadRankSelect(readsAndRevComplReads, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap);
-    end = system_clock::now();
-    cout<<"Time taken to match reads with "<<thread::hardware_concurrency()*5<<" threads:"<<(duration<double>(end-start)).count()<<"\n";
+    multiThreadRankSelect(reads, revComplReads, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap);
 
     if(readsMatchPositionFile.is_open())  readsMatchPositionFile.close();
 }
 
-void multiThreadRankSelect(vector<string>& readsAndRevComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap) {
+void multiThreadRankSelect(vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap) {
     vector<thread> readsMatchingThreads;
     mutex readsMatchOutputMutex;
     ull noOfCpuThreadsOnSystem = thread::hardware_concurrency()*5;
-    ull start, end, iter = 0, noOfReadsPerThread = static_cast<ull>(ceil(readsAndRevComplReads.size() /  noOfCpuThreadsOnSystem));
+    ull start, end, iter = 0, noOfReadsPerThread = static_cast<ull>(ceil(reads.size() /  noOfCpuThreadsOnSystem));
     for (ull i = 0; i < noOfCpuThreadsOnSystem; i++){
         start = iter;
-        end = iter + noOfReadsPerThread > readsAndRevComplReads.size() ? readsAndRevComplReads.size() : iter + noOfReadsPerThread;
+        end = iter + noOfReadsPerThread > reads.size() ? reads.size() : iter + noOfReadsPerThread;
         iter = end;
-        readsMatchingThreads.push_back(thread(rankSelectThread, start, end, ref(readsAndRevComplReads), ref(ACGT_last_rank), ref(lastColBitMap), ref(firstCol),ref(readsMatchPositionFile), ref(milestoneMap), ref(readsMatchOutputMutex)));
+        readsMatchingThreads.push_back(thread(rankSelectThread, start, end, ref(reads), ref(revComplReads), ref(ACGT_last_rank), ref(lastColBitMap), ref(firstCol),ref(readsMatchPositionFile), ref(milestoneMap), ref(readsMatchOutputMutex)));
     }
     for_each(readsMatchingThreads.begin(), readsMatchingThreads.end(), [](auto &thr) { thr.join();} ); readsMatchingThreads.clear();
 }
 
-void rankSelectThread(ull start, ull end, vector<string>& readsAndRevComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
-    for (ll i = start; i < end; i++)
-        rankSelectInit(readsAndRevComplReads[i], ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);  
+void rankSelectThread(ull start, ull end, vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
+    bool readMatch, revCompReadMatch;
+    vector<ull> matchPositions;
+    for (ll i = start; i < end; i++){
+        readMatch = rankSelectInit(reads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);  
+        revCompReadMatch = rankSelectInit(revComplReads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);
+        outputToFile(readMatch, revCompReadMatch, matchPositions, reads[i], readsMatchPositionFile, readsMatchOutputMutex);
+        matchPositions.clear();  
+    }
 }
 
-void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
+bool rankSelectInit(string read, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
     string readCopy = read;
     ll band_start, band_end;
     ll readStrLen = read.size();  
@@ -130,12 +133,9 @@ void rankSelectInit(string read, vector<vector<ull>>& ACGT_last_rank, vector<int
     found = rankSelect(read, band_start, band_end, ACGT_last_rank, lastColBitMap, firstCol);
 
     if (found)
-        getPosInRef(band_start, band_end,ACGT_last_rank, firstCol, lastColBitMap, readCopy, readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);
-    else {
-        unique_lock<mutex> ul(readsMatchOutputMutex);
-        readsMatchPositionFile<<"Not found. ["<<readCopy<<"]\n";
-        ul.unlock();
-    }
+        getPosInRef(band_start, band_end, matchPositions, ACGT_last_rank, firstCol, lastColBitMap, readCopy, readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);
+  
+    return found;
 }
 
 bool rankSelect(string& read, ll& band_start, ll& band_end, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol){
@@ -188,10 +188,6 @@ bool rankSelect(string& read, ll& band_start, ll& band_end, vector<vector<ull>>&
     band_start = getBandInFirstColFromRank(ch, rank_first_ch, firstCol);
     band_end = getBandInFirstColFromRank(ch, rank_last_ch, firstCol);
 
-    // cout<<"Time track for "<<read<<"\n"
-    //     // <<"\tRank finding time:"<<(duration_cast<microseconds>(stop_rankSelect - start_rankSelect).count())<<"\n"
-    //     <<"\tFile writing finding time:"<<(duration_cast<microseconds>(stop_getBand - start_getBand).count())<<"\n";
-
     return rankSelect(read, band_start, band_end, ACGT_last_rank, lastColBitMap, firstCol);
 }
 
@@ -232,14 +228,14 @@ void getLastColBitMap(vector<int>& lastColBitMap) {
     if(lastColBitmapFile.is_open())  lastColBitmapFile.close();
 }
 
-void getReadsFile(vector<string>& readsAndRevComplReads) {
+void getReadsFile(vector<string>& reads, vector<string>& revComplReads) {
     fstream readsFile(readsFilename, ios::in);
     string read, complementReversed;
     while(getline(readsFile, read)){
         read = cleanupReadString(read);
         complementReversed = makeReversedComplement(read);
-        readsAndRevComplReads.push_back(read);
-        readsAndRevComplReads.push_back(complementReversed);
+        reads.push_back(read);
+        revComplReads.push_back(complementReversed);
     }
     if(readsFile.is_open())  readsFile.close();
 }
@@ -285,7 +281,6 @@ ll charToBitStr(char ch) {
         case 'T': return 1;
         default: cout<<"Unknown char found. (ch="<<ch<<").\nProgram terminated\n"; exit(EXIT_FAILURE);
     }
-
     return -1;
 }
 
@@ -318,7 +313,7 @@ ll getBandInFirstColFromRank(char ch, ll rank, vector<ull>& firstCol) {
     return -1;
 }
 
-void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap, string read, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
+void getPosInRef(ll band_start, ll band_end, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap, string read, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
     ll startIndexInRef;
     ull count_jumps = 0;
 
@@ -337,9 +332,7 @@ void getPosInRef(ll band_start, ll band_end, vector<vector<ull>>& ACGT_last_rank
             band = getBandInFirstColFromRank(lastChInBand, rank_ch, firstCol);
         }
         startIndexInRef = milestoneMap[(ll)(band/DELTA)]+count_jumps;
-        unique_lock<mutex> ul(readsMatchOutputMutex);
-        readsMatchPositionFile<<startIndexInRef<<" ["<<read<<"]\n"<<flush;
-        ul.unlock();
+        matchPositions.push_back(startIndexInRef);
         count_jumps = 0;
     }
 }
@@ -354,4 +347,21 @@ char getLastCharAtRow(int chAsInt) {
         default: cout<<"Invalid bitstr from lastColBitMap.\n"; exit(EXIT_FAILURE);
     };
     return 'X';
+}
+
+void outputToFile(bool readMatch, bool revCompReadMatch, vector<ull>& matchPositions, string& read, fstream& readsMatchPositionFile, mutex& readsMatchOutputMutex){
+/*
+    csv formatted output blueprint
+    str    readMatch    revCompReadMatch    matchCount    matchPos1    matchPos2...
+    ACGT   1            1                       4           1234            5678...
+    GGGGT  0            1                       1           34567           
+    TTCA   0            0                       0
+    ...  
+*/
+    unique_lock<mutex> ul(readsMatchOutputMutex);
+    readsMatchPositionFile<<readMatch<<","<<revCompReadMatch<<","<<matchPositions.size()<<","<<read<<",";
+    for (ull j = 0; j < matchPositions.size(); j++)
+        readsMatchPositionFile<<matchPositions[j]<<",";
+    readsMatchPositionFile<<"\n"<<flush;
+    ul.unlock();
 }
