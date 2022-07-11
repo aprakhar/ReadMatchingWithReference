@@ -3,13 +3,15 @@
 #include<vector>
 #include<string>
 
+// Program 3
+
 using std::cout; using std::fstream; using std::vector; using std::ios; using std::string; using std::flush;
 
 #define ull unsigned long long
 #define ll long long
 
 string lastColFilename = "chrX_last_col.txt"; 
-// string lastColFilename = "test/testCase1/chrX_last_col_test.txt"; 
+string lastColBitmapFilename = "chrX_last_col_bitmap.txt";
 
 void addCharToBitmap(vector<int>&, char);
 void printVector(vector<int>&);
@@ -43,18 +45,19 @@ void addCharToBitmap(vector<int>& bitMap, char ch) {
         case 'C': bitMap.push_back(100); break;
         case 'G': bitMap.push_back(10); break;
         case 'T': bitMap.push_back(1); break;
-        default: bitMap.push_back(0); break;
+        case '$': bitMap.push_back(0); break;
+        default: throw std::invalid_argument("Wrong character "+std::to_string(ch)+" read in addCharToBitmap.\n");
     }
 }
 
 void printVector(vector<int>& R){
-    fstream lastColBitmap("chrX_last_col_bitmap.txt", ios::out|ios::trunc);
+    fstream lastColBitmapFile(lastColBitmapFilename, ios::out|ios::trunc);
 
     cout<<"Writing to file..."<<flush;
     for (ll i = 0; i < R.size(); i++){
-        lastColBitmap<<R[i]<<'\n';
+        lastColBitmapFile<<R[i]<<'\n';
     }
     cout<<"\rWritten to file.\n";
 
-    lastColBitmap.close();
+    lastColBitmapFile.close();
 }

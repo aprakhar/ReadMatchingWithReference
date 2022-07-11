@@ -10,6 +10,8 @@
 #include<cmath>
 #include<mutex>
 
+// Program 5
+
 using std::string; using std::cout; using std::fstream; using std::ios; using std::vector; using std::flush; using std::endl; using std::stringstream;
 using std::transform; using std::reverse; using std::invalid_argument; using std::chrono::high_resolution_clock; using std::chrono::duration;
 using std::chrono::microseconds; using std::chrono::time_point; using std::chrono::system_clock; using std::thread; using std::ref;
@@ -18,21 +20,28 @@ using std::for_each; using std::mutex; using std::unique_lock;
 #define DELTA 3
 #define ull unsigned long long
 #define ll long long
+# define MAGIC_SPLIT_NUMBER 44
 
+ull pos$InLastCol;
 string firstColRankFilename = "FirstCol.txt";                   //36B
+string chrXFilename = "chrX.fa";                                //153MB
 string readsFilename = "reads";                                 //312MB
 string milestoneMapFilename = "chrX_map_milestone.txt";         //467MB
 string lastColBitmapFilename = "chrX_last_col_bitmap.txt";      //529MB
 string lastColRankFilename = "last_col_rank.txt";               //1.8GB
-string readsMatchPositionFilename = "readsMatchPosition.txt";   // (op file) 722MB
+string readsMatchPositionFilename = "readsMatchPosition.txt";   // (op file) 350MB
 
-void multiThreadRankSelect(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&);
-void rankSelectThread(ull, ull, vector<string>&, vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, mutex&);
+void initializeOutputFile(fstream&);
+void readFilesAndStoreInMemory(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, vector<ll>&, vector<char>&);
+void multiThreadRankSelect(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, vector<char>&);
+void rankSelectThread(ull, ull, ull&, ull&, ull&, vector<string>&, vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, vector<char>&, mutex&);
+bool splitAndAlign(string, ull&, ull&, ull&, vector<ull>&, vector<vector<ull>>&, vector<int>&, vector<ull>& , fstream&, vector<ll>&, vector<char>&, mutex&);
 void getFirstCol(vector<ull>&);
 void getACGTLastRank(vector<vector<ull>>&);
 void getLastColBitMap(vector<int>&);
 void getReadsFile(vector<string>&, vector<string>&);
 void getMilestoneMapFile(vector<ll>&);
+void getChrX(vector<char>&);
 string cleanupReadString(string);
 string makeReversedComplement(string);
 char replaceNWithA(char);
@@ -47,18 +56,28 @@ char getLastCharAtRow(int);
 void outputToFile(bool, bool, vector<ull>&, string&, fstream&, mutex&);
 
 int main(int argc, char const *argv[]){
-    fstream readsMatchPositionFile(readsMatchPositionFilename, ios::out|ios::trunc);
+    vector<string> reads, revComplReads; vector<ll> milestoneMap; vector<ull> firstCol; vector<vector<ull>> ACGT_last_rank; vector<int> lastColBitMap; vector<char> chrX;
+    fstream readsMatchPositionFile;
+    
+    initializeOutputFile(readsMatchPositionFile);
+    readFilesAndStoreInMemory(reads, revComplReads, ACGT_last_rank, lastColBitMap, firstCol, milestoneMap, chrX);
+    multiThreadRankSelect(reads, revComplReads, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX);
+
+    if(readsMatchPositionFile.is_open())  readsMatchPositionFile.close();
+}
+
+void initializeOutputFile(fstream& readsMatchPositionFile) {
+    readsMatchPositionFile.open(readsMatchPositionFilename, ios::out|ios::trunc);
     if(!readsMatchPositionFile.is_open()){
         cout<<"| Unable to open "<<readsMatchPositionFilename<<". Cannot save output. Exiting program.\n";
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
+    readsMatchPositionFile<<"String match (0/1),"<<"Reverse complement of string match (0/1),"<<"No. of places string matched,"<<"Read string,"<<"Position 1,"<<"Position 2,"<<"\n";
+}
 
-    ll readsArraySize;
+void readFilesAndStoreInMemory(vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, vector<ll>& milestoneMap, vector<char>& chrX){
     vector<thread> memInitThreads;
-    vector<string> reads, revComplReads; vector<ll> milestoneMap; vector<ull> firstCol; vector<vector<ull>> ACGT_last_rank; vector<int> lastColBitMap;
-
     cout<<"Reading files & storing in memory...\n"<<flush;
-
     /* 
         Multithread read small files
         Sequential read big files  
@@ -68,38 +87,104 @@ int main(int argc, char const *argv[]){
     memInitThreads.push_back(thread(getMilestoneMapFile, ref(milestoneMap)));
     getACGTLastRank(ACGT_last_rank);
     getLastColBitMap(lastColBitMap);
+    getChrX(chrX);
     for_each(memInitThreads.begin(), memInitThreads.end(), [](auto &thr) { thr.join();} ); memInitThreads.clear();
     cout<<"Read into memory completed.\n"<<flush;
-
-    cout<<"Processing read strings.\n";
-    multiThreadRankSelect(reads, revComplReads, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap);
-
-    if(readsMatchPositionFile.is_open())  readsMatchPositionFile.close();
 }
 
-void multiThreadRankSelect(vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap) {
+void multiThreadRankSelect(vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX) {
     vector<thread> readsMatchingThreads;
-    mutex readsMatchOutputMutex;
-    ull noOfCpuThreadsOnSystem = thread::hardware_concurrency()*5;
-    ull start, end, iter = 0, noOfReadsPerThread = static_cast<ull>(ceil(reads.size() /  noOfCpuThreadsOnSystem));
-    for (ull i = 0; i < noOfCpuThreadsOnSystem; i++){
-        start = iter;
-        end = iter + noOfReadsPerThread > reads.size() ? reads.size() : iter + noOfReadsPerThread;
-        iter = end;
-        readsMatchingThreads.push_back(thread(rankSelectThread, start, end, ref(reads), ref(revComplReads), ref(ACGT_last_rank), ref(lastColBitMap), ref(firstCol),ref(readsMatchPositionFile), ref(milestoneMap), ref(readsMatchOutputMutex)));
+    mutex readsMatchOutputMutex, countMatchMutex;
+    ull noOfCpuThreadsOnSystem = thread::hardware_concurrency();
+    ull start, end, iter = 0, noOfReadsPerThread = static_cast<ull>(ceil((double)reads.size() /  noOfCpuThreadsOnSystem));
+    ull sumexactMatch = 0, sumoneError = 0, sumtwoError = 0;
+    vector<ull> totalexactMatch(noOfCpuThreadsOnSystem, 0), totaloneError(noOfCpuThreadsOnSystem, 0), totaltwoError(noOfCpuThreadsOnSystem, 0);
+    
+    cout<<"Processing read strings.\n";
+    if ((reads.size()/10000) < noOfCpuThreadsOnSystem) {
+        rankSelectThread(0, reads.size(), totalexactMatch[0], totaloneError[0], totaltwoError[0], reads, revComplReads, ACGT_last_rank, lastColBitMap, firstCol, readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
+        sumexactMatch += totalexactMatch[0]; sumoneError += totaloneError[0]; sumtwoError += totaltwoError[0];
+    } else { 
+        for (ull i = 0; i < noOfCpuThreadsOnSystem; i++){
+            start = iter;
+            end = iter + noOfReadsPerThread > reads.size() ? reads.size() : iter + noOfReadsPerThread;
+            iter = end;
+            readsMatchingThreads.push_back(thread(rankSelectThread, start, end, ref(totalexactMatch[i]), ref(totaloneError[i]), ref(totaltwoError[i]), ref(reads), ref(revComplReads), ref(ACGT_last_rank), ref(lastColBitMap), ref(firstCol),ref(readsMatchPositionFile), ref(milestoneMap), ref(chrX), ref(readsMatchOutputMutex)));
+            sumexactMatch += totalexactMatch[i]; sumoneError += totaloneError[i]; sumtwoError += totaltwoError[i];
+        }
+        for_each(readsMatchingThreads.begin(), readsMatchingThreads.end(), [](auto &thr) { thr.join();} ); readsMatchingThreads.clear();
+        for (ull i = 0; i < noOfCpuThreadsOnSystem; i++){
+            sumexactMatch += totalexactMatch[i]; sumoneError += totaloneError[i]; sumtwoError += totaltwoError[i];
+        }
     }
-    for_each(readsMatchingThreads.begin(), readsMatchingThreads.end(), [](auto &thr) { thr.join();} ); readsMatchingThreads.clear();
+    
+    cout<<"Exact matches: "<<sumexactMatch<<"\n"<<"One error: "<<sumoneError<<"\n"<<"Two erros: "<<sumtwoError<<"\n";
 }
 
-void rankSelectThread(ull start, ull end, vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
+void rankSelectThread(ull start, ull end, ull& totalexactMatch, ull& totaloneError, ull& totaltwoError, vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX, mutex& readsMatchOutputMutex ) {
     bool readMatch, revCompReadMatch;
+    ull exactMatch = 0, oneError = 0, twoError = 0, readexactMatch = 0, readoneError = 0, readtwoError = 0;
     vector<ull> matchPositions;
     for (ll i = start; i < end; i++){
-        readMatch = rankSelectInit(reads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);  
-        revCompReadMatch = rankSelectInit(revComplReads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);
+        readMatch = splitAndAlign(reads[i], readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
+        exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
+        readexactMatch = 0; readoneError = 0; readtwoError = 0;
+        revCompReadMatch = splitAndAlign(revComplReads[i],readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
+        exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
+        readexactMatch = 0; readoneError = 0; readtwoError = 0;
+        
         outputToFile(readMatch, revCompReadMatch, matchPositions, reads[i], readsMatchPositionFile, readsMatchOutputMutex);
+        
         matchPositions.clear();  
     }
+    totalexactMatch = exactMatch;
+    totaloneError = oneError;
+    totaltwoError = twoError;
+}
+
+bool splitAndAlign(string read, ull& readexactMatch, ull& readoneError, ull& readtwoError, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX, mutex& readsMatchOutputMutex) {
+    ull charsPerSplit, end, start = 0, exactMatch = 0, oneError = 0, twoError = 0;
+    int maxMismatch = 2, noOfSplits = static_cast<ull>(ceil((double)read.length() / MAGIC_SPLIT_NUMBER));
+    bool splitMatched = false, matchFound = false;
+    charsPerSplit = static_cast<ull>(ceil((double)read.length() / noOfSplits));
+    vector<ull> substrMatchPositions;
+    end = start + charsPerSplit;
+    for (ull i = 0; i < noOfSplits; i++){
+        splitMatched = rankSelectInit(read.substr(start, end - start), substrMatchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, readsMatchOutputMutex);  
+        if (splitMatched){
+            for (ull j = 0; j < substrMatchPositions.size(); j++){
+                int countMismatches = 0;
+                ull left = start, right = end, matchIndex = substrMatchPositions[j];
+                while (countMismatches <= maxMismatch && right < read.length() && (matchIndex+charsPerSplit < chrX.size())){
+                    if (read[right] != chrX[matchIndex+charsPerSplit]) {
+                        countMismatches++;
+                    }
+                    right++;
+                    matchIndex++;
+                }
+
+                matchIndex = substrMatchPositions[j];
+                while (countMismatches <= maxMismatch && left > 0 && matchIndex > 0)
+                    if (read[left--] != chrX[matchIndex--]) 
+                        countMismatches++;
+                if (left == 0 && right == read.length() && countMismatches <= maxMismatch)  {
+                    matchPositions.push_back(matchIndex);
+                    matchFound = true;
+                    (countMismatches == 0) && exactMatch++;
+                    (countMismatches == 1) && oneError++;
+                    (countMismatches == 2) && twoError++;
+                    break;
+                } 
+            }
+            splitMatched = false;
+        }
+        if (matchFound) break;
+        start = end;
+        end = start + charsPerSplit > read.length() ? read.length() : start + charsPerSplit;
+        substrMatchPositions.clear();
+    }
+    readexactMatch = exactMatch; readoneError = oneError; readtwoError = twoError;
+    return matchFound;
 }
 
 bool rankSelectInit(string read, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
@@ -204,8 +289,14 @@ void getFirstCol(vector<ull>& firstCol) {
 void getACGTLastRank(vector<vector<ull>>& ACGT_last_rank){
     fstream lastColRankFile(lastColRankFilename, ios::in);
     string readStr;
-
     while(getline(lastColRankFile, readStr)){
+        if(readStr[0] == '$') {
+            string position$;
+            stringstream ss(readStr);
+            while(getline(ss, position$, ':')){}
+            pos$InLastCol = stoull(position$);
+            continue;
+        }
         string rank;
         stringstream ss(readStr);
         vector<ull> rank_row;
@@ -249,6 +340,23 @@ void getMilestoneMapFile(vector<ll>& milestoneMap) {
     if(milestoneMapFile.is_open())  milestoneMapFile.close();
 }
 
+void getChrX(vector<char>& chrX) {
+    fstream chrXFile(chrXFilename, ios::in);
+    char ch;
+    chrXFile.get(ch);
+    string fileMetaData;
+    if (ch == '>')
+        getline(chrXFile, fileMetaData); 
+    else 
+        chrX.push_back(ch);
+    while(chrXFile.get(ch))
+        if (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T') 
+            chrX.push_back(ch);
+
+    if(chrXFile.is_open())
+        chrXFile.close();
+}
+
 char replaceNWithA(char ch) { return ch == 'N' ? 'A' : ch; } 
 
 string cleanupReadString(string str){
@@ -262,8 +370,8 @@ char dnaComplement(char ch){
         case 'C': return 'G';
         case 'G': return 'C';
         case 'T': return 'A';
+        default: throw std::invalid_argument("Wrong character "+std::to_string(ch)+" read in dnaComplement.\n");
     }
-    throw invalid_argument("Unknown character: " + ch);
 }
 
 string makeReversedComplement(string str) {
@@ -279,9 +387,9 @@ ll charToBitStr(char ch) {
         case 'C': return 100;
         case 'G': return 10;
         case 'T': return 1;
-        default: cout<<"Unknown char found. (ch="<<ch<<").\nProgram terminated\n"; exit(EXIT_FAILURE);
+        case '$': return 0;
+        default: throw std::invalid_argument("Wrong character "+std::to_string(ch)+" read in charToBitStr.\n");
     }
-    return -1;
 }
 
 ll getMileStoneRankFromRankDS(char ch, ll index, vector<vector<ull>>& ACGT_last_rank) {
@@ -290,10 +398,9 @@ ll getMileStoneRankFromRankDS(char ch, ll index, vector<vector<ull>>& ACGT_last_
         case 'C': return ACGT_last_rank[index][1];
         case 'G': return ACGT_last_rank[index][2];
         case 'T': return ACGT_last_rank[index][3];
-        default: cout<<"Unknown char found. (ch="<<ch<<").\nProgram terminated\n"; exit(EXIT_FAILURE);
+        case '$': return index*DELTA > pos$InLastCol ? 1 : 0;
+        default: throw std::invalid_argument("Wrong character "+std::to_string(ch)+" read in getMileStoneRankFromRankDS.\n");
     }
-
-    return -1;
 }
 
 ll getBandInFirstColFromRank(char ch, ll rank, vector<ull>& firstCol) {
@@ -307,10 +414,9 @@ ll getBandInFirstColFromRank(char ch, ll rank, vector<ull>& firstCol) {
         case 'C': return firstCol[0] + rank;
         case 'G': return firstCol[0] + firstCol[1] + rank;
         case 'T': return firstCol[0] + firstCol[1] + firstCol[2] + rank;
-        
-        default: cout<<"Unknown char found. (ch="<<ch<<").\nProgram terminated\n"; exit(EXIT_FAILURE);
+        case '$': return firstCol[0] + firstCol[1] + firstCol[2] + firstCol[3] + rank;
+        default: throw std::invalid_argument("Wrong character "+std::to_string(ch)+" read in getBandInFirstColFromRank.\n");
     }
-    return -1;
 }
 
 void getPosInRef(ll band_start, ll band_end, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<ull>& firstCol, vector<int>& lastColBitMap, string read, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, mutex& readsMatchOutputMutex) {
@@ -344,18 +450,17 @@ char getLastCharAtRow(int chAsInt) {
         case 10: return 'G';
         case 1: return 'T';
         case 0: return '$';
-        default: cout<<"Invalid bitstr from lastColBitMap.\n"; exit(EXIT_FAILURE);
+        default: throw std::invalid_argument("Wrong character value "+std::to_string(chAsInt)+" read in getLastCharAtRow.\n");
     };
-    return 'X';
 }
 
 void outputToFile(bool readMatch, bool revCompReadMatch, vector<ull>& matchPositions, string& read, fstream& readsMatchPositionFile, mutex& readsMatchOutputMutex){
 /*
     csv formatted output blueprint
-    str    readMatch    revCompReadMatch    matchCount    matchPos1    matchPos2...
-    ACGT   1            1                       4           1234            5678...
-    GGGGT  0            1                       1           34567           
-    TTCA   0            0                       0
+    readMatch    revCompReadMatch      str      matchCount    matchPos1    matchPos2...
+    1            1                     ACGT         4           1234            5678...
+    0            1                     GGGGT        1           34567           
+    0            0                     TTCA         0
     ...  
 */
     unique_lock<mutex> ul(readsMatchOutputMutex);
