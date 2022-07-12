@@ -9,12 +9,20 @@
 
 using std::cout;
 
-#define ull unsigned long long
+#define ll long long
+#define ull unsigned ll
 #define MIN_OVERLAP 10
 
 const std::string readsPositionFilename = "readsMatchPosition.txt";
 
-const std::vector<std::pair<ull, ull>> greenExons = {
+const std::vector<std::pair<ull, ull>> green2Exons = {
+    std::make_pair(149330376-1, 149330672-1),
+    std::make_pair(149332660-1, 149332828-1),
+    std::make_pair(149334296-1, 149334461-1),
+    std::make_pair(149336016-1, 149336255-1)
+};
+
+const std::vector<std::pair<ull, ull>> green1Exons = {
     std::make_pair(149293258-1, 149293554-1),
     std::make_pair(149295542-1, 149295710-1),
     std::make_pair(149297178-1, 149297343-1),
@@ -28,13 +36,15 @@ const std::vector<std::pair<ull, ull>> redExons = {
     std::make_pair(149261768-1, 149262007-1)
 };
 
-std::vector<ull> greenCount(greenExons.size(), 0), redCount(redExons.size(), 0);
+std::vector<long double> green2Count(green2Exons.size(), 0),green1Count(green1Exons.size(), 0), redCount(redExons.size(), 0);
 
 void checkExistenceInRegion(std::vector<std::string>::iterator start, std::vector<std::string>::iterator end);
-bool isInAnyGreenExon(std::string read, ull startIndex);
-bool isInAnyRedExon(std::string read, ull startIndex);
+ll isInAnyGreen2Exon(std::string read, ull startIndex);
+ll isInAnyGreen1Exon(std::string read, ull startIndex);
+ll isInAnyRedExon(std::string read, ull startIndex);
 bool isInExon(ull startIndex, ull endIndex, ull exonStart, ull exonEnd);
-
+void printCounts();
+void printPercentage();
 
 int main(int argc, char const *argv[]){
     std::fstream readsPositionFile(readsPositionFilename, std::ios::in);
@@ -52,50 +62,76 @@ int main(int argc, char const *argv[]){
         }
     }
     if(readsPositionFile.is_open())  readsPositionFile.close();
-
     
-    for (unsigned int i = 0; i < redCount.size(); i++){
-        cout<<"R "<<i+2<<": "<<redCount[i]<<"\n";
-    }
-    cout<<"\n";
-    for (unsigned int i = 0; i < greenCount.size(); i++){
-        cout<<"G "<<i+2<<": "<<greenCount[i]<<"\n";
-    }
-    cout<<"\n";
+    printCounts();
+    printPercentage();
 }
 
 void checkExistenceInRegion(std::vector<std::string>::iterator start, std::vector<std::string>::iterator end){
     std::string read = *start;
+    bool foundInRed = false, foundInGreen1 = false, foundInGreen2 = false;
     for (std::vector<std::string>::iterator iter = start+1; iter < end; iter++) {
-        isInAnyRedExon(read, stoull(*iter));
-        isInAnyGreenExon(read, stoull(*iter));
+        foundInRed = isInAnyRedExon(read, stoull(*iter));
+        foundInGreen1 = isInAnyGreen1Exon(read, stoull(*iter));
+        foundInGreen2 = isInAnyGreen2Exon(read, stoull(*iter));
+
+        // if (foundInRed > 0 && foundInGreen > 0) {
+        //     green1Count[foundInGreen]+=(long double)2/3;
+        //     redCount[foundInRed]+=(long double)1/3;
+        // } 
+        // if (foundInRed > 0 && foundInGreen > 0)
+        if (foundInRed > 0 && foundInGreen1 > 0 && foundInGreen2 > 0) {
+            green2Count[foundInGreen2]+=(long double)1/3;
+            green1Count[foundInGreen1]+=(long double)1/3;
+            redCount[foundInRed]+=(long double)1/3;
+        }
+        if (foundInRed > 0 && foundInGreen1 > 0 && foundInGreen2 < 0) {
+            green1Count[foundInGreen1]+=(long double)1/3;
+            redCount[foundInRed]+=(long double)1/3;
+        }
     }
 }
 
-bool isInAnyGreenExon(std::string read, ull startIndex) {
+ll isInAnyGreen2Exon(std::string read, ull startIndex) {
     ull endIndex = startIndex + read.length();
-    bool found = false;
-    for (int i = 0; i < 4; i++){
-        found = isInExon(startIndex, endIndex, greenExons[i].first, greenExons[i].second);
+    ll foundIndex = -1;
+    for (int i = 0; i < green2Exons.size(); i++){
+        bool found = isInExon(startIndex, endIndex, green2Exons[i].first, green2Exons[i].second);
         if (found) {
-            greenCount[i]++;
+            green2Count[i]++;
+            foundIndex = i;
             break;
         }
     }
-    return found;    
+    return foundIndex;    
 }
 
-bool isInAnyRedExon(std::string read, ull startIndex) {
+ll isInAnyGreen1Exon(std::string read, ull startIndex) {
     ull endIndex = startIndex + read.length();
-    bool found = false;
-    for (int i = 0; i < 4; i++){
-        found = isInExon(startIndex, endIndex, redExons[i].first, redExons[i].second);
+    ll foundIndex = -1;
+    for (int i = 0; i < green1Exons.size(); i++){
+        bool found = isInExon(startIndex, endIndex, green1Exons[i].first, green1Exons[i].second);
+        if (found) {
+            green1Count[i]++;
+            foundIndex = i;
+            break;
+        }
+    }
+    return foundIndex;    
+}
+
+ll isInAnyRedExon(std::string read, ull startIndex) {
+    ull endIndex = startIndex + read.length();
+    ll foundIndex = -1;
+    for (int i = 0; i < redExons.size(); i++){
+        bool found = isInExon(startIndex, endIndex, redExons[i].first, redExons[i].second);
         if (found) {
             redCount[i]++;
+            foundIndex = i;
             break;
         }
     }
-    return found;    
+    return foundIndex;    
 }
 
 bool isInExon(ull startIndex, ull endIndex, ull exonStart, ull exonEnd) {
@@ -107,4 +143,26 @@ bool isInExon(ull startIndex, ull endIndex, ull exonStart, ull exonEnd) {
         inExon = false;
     }
     return inExon;
+}
+
+void printCounts() {
+    for (unsigned int i = 0; i < redCount.size(); i++){
+        cout<<"R "<<i+2<<": "<<redCount[i]<<"\n";
+    }
+    cout<<"\n";
+    for (unsigned int i = 0; i < green1Count.size(); i++){
+        cout<<"G1 "<<i+2<<": "<<green1Count[i]<<"\n";
+    }
+    cout<<"\n";
+    for (unsigned int i = 0; i < green2Count.size(); i++){
+        cout<<"G2 "<<i+2<<": "<<green2Count[i]<<"\n";
+    }
+    cout<<"\n";
+}
+
+void printPercentage() {
+    for (ull i = 0; i < 4; i++){
+        cout<<((long double)redCount[i]/(green1Count[i]+green2Count[i]))*100<<"%\t";
+    }
+    cout<<"\n";
 }

@@ -24,8 +24,8 @@ using std::for_each; using std::mutex; using std::unique_lock;
 
 ull pos$InLastCol;
 string firstColRankFilename = "FirstCol.txt";                   //36B
-string chrXFilename = "chrX.fa";                                //153MB
-string readsFilename = "reads";                                 //312MB
+string chrXFilename = "data/dataset1/chrX.fa";                                //153MB
+string readsFilename = "data/dataset1/reads";                                 //312MB
 string milestoneMapFilename = "chrX_map_milestone.txt";         //467MB
 string lastColBitmapFilename = "chrX_last_col_bitmap.txt";      //529MB
 string lastColRankFilename = "last_col_rank.txt";               //1.8GB

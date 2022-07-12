@@ -11,7 +11,7 @@ using std::cout; using std::string; using std::vector; using std::stringstream; 
 #define DELTA 3
 #define ull unsigned long long
 
-string firstColFilename = "chrX_map.txt";
+string firstColFilename = "data/dataset1/chrX_map.txt";
 string mapMilestoneFilename = "chrX_map_milestone.txt";
 
 int main(int argc, char const *argv[]){

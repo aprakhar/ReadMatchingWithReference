@@ -10,7 +10,7 @@ using std::cout; using std::fstream; using std::vector; using std::ios; using st
 #define ull unsigned long long
 #define ll long long
 
-string lastColFilename = "chrX_last_col.txt"; 
+string lastColFilename = "data/dataset1/chrX_last_col.txt"; 
 string lastColBitmapFilename = "chrX_last_col_bitmap.txt";
 
 void addCharToBitmap(vector<int>&, char);

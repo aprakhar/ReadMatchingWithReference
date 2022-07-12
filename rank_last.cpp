@@ -9,7 +9,7 @@ using std::string; using std::vector; using std::ios; using std::cout; using std
 #define ull unsigned long long
 #define DELTA 3
 
-string lastColFilename = "chrX_last_col.txt";
+string lastColFilename = "data/dataset1/chrX_last_col.txt";
 string lastColRankFilename = "last_col_rank.txt";
 
 void printVector(char, vector<int>);

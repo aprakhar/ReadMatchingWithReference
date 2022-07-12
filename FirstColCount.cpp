@@ -8,7 +8,7 @@ using std::cout; using std::fstream; using std::streamoff; using std::streampos;
 
 #define ull unsigned long long
 
-string lastColFilename = "chrX_last_col.txt"; 
+string lastColFilename = "data/dataset1/chrX_last_col.txt"; 
 string rankFirstColFilename = "FirstCol.txt";
 
 void printAndSave(ull, ull, ull, ull);
