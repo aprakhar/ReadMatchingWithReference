@@ -24,8 +24,8 @@ using std::for_each; using std::mutex; using std::unique_lock;
 
 ull pos$InLastCol;
 string firstColRankFilename = "FirstCol.txt";                   //36B
-string chrXFilename = "data/dataset1/chrX.fa";                                //153MB
-string readsFilename = "data/dataset1/reads";                                 //312MB
+string chrXFilename = "data/dataset1/chrX.fa";                  //153MB
+string readsFilename = "data/dataset1/reads";                   //312MB
 string milestoneMapFilename = "chrX_map_milestone.txt";         //467MB
 string lastColBitmapFilename = "chrX_last_col_bitmap.txt";      //529MB
 string lastColRankFilename = "last_col_rank.txt";               //1.8GB
@@ -35,7 +35,7 @@ void initializeOutputFile(fstream&);
 void readFilesAndStoreInMemory(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, vector<ll>&, vector<char>&);
 void multiThreadRankSelect(vector<string>&,vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, vector<char>&);
 void rankSelectThread(ull, ull, ull&, ull&, ull&, vector<string>&, vector<string>&, vector<vector<ull>>&, vector<int>&, vector<ull>&, fstream&, vector<ll>&, vector<char>&, mutex&);
-bool splitAndAlign(string, ull&, ull&, ull&, vector<ull>&, vector<vector<ull>>&, vector<int>&, vector<ull>& , fstream&, vector<ll>&, vector<char>&, mutex&);
+bool splitAndAlign(string, int, vector<ull>&, vector<vector<ull>>&, vector<int>&, vector<ull>& , fstream&, vector<ll>&, vector<char>&, mutex&);
 void getFirstCol(vector<ull>&);
 void getACGTLastRank(vector<vector<ull>>&);
 void getLastColBitMap(vector<int>&);
@@ -53,7 +53,7 @@ ll getMileStoneRankFromRankDS(char, ll, vector<vector<ull>>&);
 ll getBandInFirstColFromRank(char, ll, vector<ull>&);
 void getPosInRef(ll, ll, vector<ull>&, vector<vector<ull>>&, vector<ull>&, vector<int>&, string, fstream&, vector<ll>&, mutex&);
 char getLastCharAtRow(int);
-void outputToFile(bool, bool, vector<ull>&, string&, fstream&, mutex&);
+void outputToFile(vector<ull>&, string&, fstream&, mutex&, bool, bool, bool);
 
 int main(int argc, char const *argv[]){
     vector<string> reads, revComplReads; vector<ll> milestoneMap; vector<ull> firstCol; vector<vector<ull>> ACGT_last_rank; vector<int> lastColBitMap; vector<char> chrX;
@@ -72,7 +72,7 @@ void initializeOutputFile(fstream& readsMatchPositionFile) {
         cout<<"| Unable to open "<<readsMatchPositionFilename<<". Cannot save output. Exiting program.\n";
         exit(EXIT_FAILURE);
     }
-    readsMatchPositionFile<<"String match (0/1),"<<"Reverse complement of string match (0/1),"<<"No. of places string matched,"<<"Read string,"<<"Position 1,"<<"Position 2,"<<"\n";
+    readsMatchPositionFile<<"Exact match(0/1),"<<"Match with variants(0/1),"<<"No. of places string matched,"<<"Read string,"<<"Position 1,"<<"Position 2,"<<"\n";
 }
 
 void readFilesAndStoreInMemory(vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, vector<ll>& milestoneMap, vector<char>& chrX){
@@ -122,19 +122,24 @@ void multiThreadRankSelect(vector<string>& reads, vector<string>& revComplReads,
 }
 
 void rankSelectThread(ull start, ull end, ull& totalexactMatch, ull& totaloneError, ull& totaltwoError, vector<string>& reads, vector<string>& revComplReads, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX, mutex& readsMatchOutputMutex ) {
-    bool readMatch, revCompReadMatch;
     ull exactMatch = 0, oneError = 0, twoError = 0, readexactMatch = 0, readoneError = 0, readtwoError = 0;
     vector<ull> matchPositions;
     for (ll i = start; i < end; i++){
-        readMatch = splitAndAlign(reads[i], readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
-        exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
-        readexactMatch = 0; readoneError = 0; readtwoError = 0;
-        revCompReadMatch = splitAndAlign(revComplReads[i],readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
-        exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
-        readexactMatch = 0; readoneError = 0; readtwoError = 0;
+        if (rankSelectInit(reads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol, readsMatchPositionFile, milestoneMap,readsMatchOutputMutex)) readexactMatch++;
+        else if (rankSelectInit(revComplReads[i], matchPositions, ACGT_last_rank, lastColBitMap, firstCol, readsMatchPositionFile, milestoneMap,readsMatchOutputMutex)) readexactMatch++;
+        else if (splitAndAlign(reads[i], 1, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex)) readoneError++;
+        else if (splitAndAlign(reads[i], 2, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex)) readtwoError++;
+        else if (splitAndAlign(revComplReads[i], 1, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex)) readoneError++;
+        else if (splitAndAlign(revComplReads[i], 2, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex)) readtwoError++;
+
+        // readMatch = splitAndAlign(reads[i], readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
+        // exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
+        // readexactMatch = 0; readoneError = 0; readtwoError = 0;
+        // revCompReadMatch = splitAndAlign(revComplReads[i],readexactMatch, readoneError, readtwoError, matchPositions, ACGT_last_rank, lastColBitMap, firstCol,readsMatchPositionFile, milestoneMap, chrX, readsMatchOutputMutex);
         
-        outputToFile(readMatch, revCompReadMatch, matchPositions, reads[i], readsMatchPositionFile, readsMatchOutputMutex);
-        
+        exactMatch += readexactMatch; oneError += readoneError; twoError += readtwoError;
+        outputToFile(matchPositions, reads[i], readsMatchPositionFile, readsMatchOutputMutex, readexactMatch, readoneError, readtwoError);
+        readexactMatch = 0; readoneError = 0; readtwoError = 0;
         matchPositions.clear();  
     }
     totalexactMatch = exactMatch;
@@ -142,9 +147,9 @@ void rankSelectThread(ull start, ull end, ull& totalexactMatch, ull& totaloneErr
     totaltwoError = twoError;
 }
 
-bool splitAndAlign(string read, ull& readexactMatch, ull& readoneError, ull& readtwoError, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX, mutex& readsMatchOutputMutex) {
-    ull charsPerSplit, end, start = 0, exactMatch = 0, oneError = 0, twoError = 0;
-    int maxMismatch = 2, noOfSplits = static_cast<ull>(ceil((double)read.length() / MAGIC_SPLIT_NUMBER));
+bool splitAndAlign(string read, int maxMismatch, vector<ull> &matchPositions, vector<vector<ull>>& ACGT_last_rank, vector<int>& lastColBitMap, vector<ull>& firstCol, fstream& readsMatchPositionFile, vector<ll>& milestoneMap, vector<char>& chrX, mutex& readsMatchOutputMutex) {
+    ull charsPerSplit, end, start = 0;//, exactMatch = 0, oneError = 0, twoError = 0;
+    int noOfSplits = static_cast<ull>(ceil((double)read.length() / MAGIC_SPLIT_NUMBER));
     bool splitMatched = false, matchFound = false;
     charsPerSplit = static_cast<ull>(ceil((double)read.length() / noOfSplits));
     vector<ull> substrMatchPositions;
@@ -170,9 +175,9 @@ bool splitAndAlign(string read, ull& readexactMatch, ull& readoneError, ull& rea
                 if (left == 0 && right == read.length() && countMismatches <= maxMismatch)  {
                     matchPositions.push_back(matchIndex);
                     matchFound = true;
-                    (countMismatches == 0) && exactMatch++;
-                    (countMismatches == 1) && oneError++;
-                    (countMismatches == 2) && twoError++;
+                    // (countMismatches == 0) && exactMatch++;
+                    // (countMismatches == 1) && oneError++;
+                    // (countMismatches == 2) && twoError++;
                     break;
                 } 
             }
@@ -183,7 +188,7 @@ bool splitAndAlign(string read, ull& readexactMatch, ull& readoneError, ull& rea
         end = start + charsPerSplit > read.length() ? read.length() : start + charsPerSplit;
         substrMatchPositions.clear();
     }
-    readexactMatch = exactMatch; readoneError = oneError; readtwoError = twoError;
+    // readexactMatch = exactMatch; readoneError = oneError; readtwoError = twoError;
     return matchFound;
 }
 
@@ -454,17 +459,17 @@ char getLastCharAtRow(int chAsInt) {
     };
 }
 
-void outputToFile(bool readMatch, bool revCompReadMatch, vector<ull>& matchPositions, string& read, fstream& readsMatchPositionFile, mutex& readsMatchOutputMutex){
+void outputToFile(vector<ull>& matchPositions, string& read, fstream& readsMatchPositionFile, mutex& readsMatchOutputMutex, bool readexactMatch, bool readoneError, bool readtwoError){
 /*
     csv formatted output blueprint
-    readMatch    revCompReadMatch      str      matchCount    matchPos1    matchPos2...
-    1            1                     ACGT         4           1234            5678...
+    exact    variant      str      matchCount    matchPos1    matchPos2...
+    1            0                     ACGT         4           1234            5678...
     0            1                     GGGGT        1           34567           
     0            0                     TTCA         0
     ...  
 */
     unique_lock<mutex> ul(readsMatchOutputMutex);
-    readsMatchPositionFile<<readMatch<<","<<revCompReadMatch<<","<<matchPositions.size()<<","<<read<<",";
+    readsMatchPositionFile<<readexactMatch<<","<<(readoneError||readtwoError)<<","<<matchPositions.size()<<","<<read<<",";
     for (ull j = 0; j < matchPositions.size(); j++)
         readsMatchPositionFile<<matchPositions[j]<<",";
     readsMatchPositionFile<<"\n"<<flush;

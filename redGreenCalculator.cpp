@@ -11,7 +11,7 @@ using std::cout;
 
 #define ll long long
 #define ull unsigned ll
-#define MIN_OVERLAP 10
+#define MIN_OVERLAP 100
 
 const std::string readsPositionFilename = "readsMatchPosition.txt";
 
@@ -36,7 +36,7 @@ const std::vector<std::pair<ull, ull>> redExons = {
     std::make_pair(149261768-1, 149262007-1)
 };
 
-std::vector<long double> green2Count(green2Exons.size(), 0),green1Count(green1Exons.size(), 0), redCount(redExons.size(), 0);
+std::vector<long double> green2Count(green2Exons.size(), 0.0L),green1Count(green1Exons.size(), 0.0L), redCount(redExons.size(), 0.0L);
 
 void checkExistenceInRegion(std::vector<std::string>::iterator start, std::vector<std::string>::iterator end);
 ll isInAnyGreen2Exon(std::string read, ull startIndex);
@@ -51,13 +51,13 @@ int main(int argc, char const *argv[]){
     std::string readInfo, columnHeaders, subreadInfo;
     getline(readsPositionFile, columnHeaders);
     while(getline(readsPositionFile, readInfo)){
-        // 1,1,2,GCTTTTGGGAGAGGAGGCTGTTTCTCTGCATTCTAGGTCATCTCCAGAGAAACTGCTGGTAACGTTTCCTCCCACAGGTGCATTGCTACCAGGTTTCTTCT,131005222,130912139,
+        // 1,0,2,GCTTTTGGGAGAGGAGGCTGTTTCTCTGCATTCTAGGTCATCTCCAGAGAAACTGCTGGTAACGTTTCCTCCCACAGGTGCATTGCTACCAGGTTTCTTCT,131005222,130912139,
         std::stringstream ss(readInfo);
         std::vector<std::string> readInfoVector;
         while(getline(ss, subreadInfo, ',')){
             readInfoVector.push_back(subreadInfo);
         }
-        if (readInfoVector.size() > 2 && stoll(readInfoVector[2]) > 0) {
+        if (readInfoVector.size() > 2 && stoll(readInfoVector[2]) > 0 && stoll(readInfoVector[2]) < 5) {
             checkExistenceInRegion(readInfoVector.begin()+3, readInfoVector.end());
         }
     }
@@ -69,26 +69,37 @@ int main(int argc, char const *argv[]){
 
 void checkExistenceInRegion(std::vector<std::string>::iterator start, std::vector<std::string>::iterator end){
     std::string read = *start;
-    bool foundInRed = false, foundInGreen1 = false, foundInGreen2 = false;
+    ll foundInRed, foundInGreen1, foundInGreen2;
     for (std::vector<std::string>::iterator iter = start+1; iter < end; iter++) {
         foundInRed = isInAnyRedExon(read, stoull(*iter));
         foundInGreen1 = isInAnyGreen1Exon(read, stoull(*iter));
         foundInGreen2 = isInAnyGreen2Exon(read, stoull(*iter));
-
-        // if (foundInRed > 0 && foundInGreen > 0) {
-        //     green1Count[foundInGreen]+=(long double)2/3;
-        //     redCount[foundInRed]+=(long double)1/3;
-        // } 
-        // if (foundInRed > 0 && foundInGreen > 0)
-        if (foundInRed > 0 && foundInGreen1 > 0 && foundInGreen2 > 0) {
-            green2Count[foundInGreen2]+=(long double)1/3;
-            green1Count[foundInGreen1]+=(long double)1/3;
-            redCount[foundInRed]+=(long double)1/3;
-        }
-        if (foundInRed > 0 && foundInGreen1 > 0 && foundInGreen2 < 0) {
-            green1Count[foundInGreen1]+=(long double)1/3;
-            redCount[foundInRed]+=(long double)1/3;
-        }
+    }
+    if (foundInRed > 0 && foundInGreen1 > 0 && foundInGreen2 > 0) {
+        green2Count[foundInGreen2]+=(long double)1/3;
+        green1Count[foundInGreen1]+=(long double)1/3;
+        redCount[foundInRed]+=(long double)1/3;
+    }
+    if (foundInRed >= 0 && foundInGreen1 >= 0 && foundInGreen2 < 0) {
+        green1Count[foundInGreen1]+=(long double)2/3;
+        redCount[foundInRed]+=(long double)1/3;
+        // green1Count[foundInGreen1]+=(long double)1/2;
+        // redCount[foundInRed]+=(long double)1/2;
+    }
+    if (foundInRed >= 0 && foundInGreen1 < 0 && foundInGreen2 >= 0) {
+        green2Count[foundInGreen2]+=(long double)2/3;
+        redCount[foundInRed]+=(long double)1/3;
+        // green2Count[foundInGreen2]+=(long double)1/2;
+        // redCount[foundInRed]+=(long double)1/2;
+    }
+    if (foundInRed >= 0 && foundInGreen1 < 0 && foundInGreen2 < 0) {
+        redCount[foundInRed]+=1;
+    }
+    if (foundInRed < 0 && foundInGreen1 >= 0 && foundInGreen2 < 0) {
+        green1Count[foundInGreen1]+=1;
+    }
+    if (foundInRed < 0 && foundInGreen1 < 0 && foundInGreen2 >= 0) {
+        green2Count[foundInGreen2]+=1;
     }
 }
 
@@ -98,7 +109,6 @@ ll isInAnyGreen2Exon(std::string read, ull startIndex) {
     for (int i = 0; i < green2Exons.size(); i++){
         bool found = isInExon(startIndex, endIndex, green2Exons[i].first, green2Exons[i].second);
         if (found) {
-            green2Count[i]++;
             foundIndex = i;
             break;
         }
@@ -112,7 +122,6 @@ ll isInAnyGreen1Exon(std::string read, ull startIndex) {
     for (int i = 0; i < green1Exons.size(); i++){
         bool found = isInExon(startIndex, endIndex, green1Exons[i].first, green1Exons[i].second);
         if (found) {
-            green1Count[i]++;
             foundIndex = i;
             break;
         }
@@ -126,7 +135,6 @@ ll isInAnyRedExon(std::string read, ull startIndex) {
     for (int i = 0; i < redExons.size(); i++){
         bool found = isInExon(startIndex, endIndex, redExons[i].first, redExons[i].second);
         if (found) {
-            redCount[i]++;
             foundIndex = i;
             break;
         }
@@ -136,6 +144,7 @@ ll isInAnyRedExon(std::string read, ull startIndex) {
 
 bool isInExon(ull startIndex, ull endIndex, ull exonStart, ull exonEnd) {
     bool inExon = true;
+
     if (startIndex <= exonStart && endIndex < exonStart + MIN_OVERLAP) {
         inExon = false;
     } 
